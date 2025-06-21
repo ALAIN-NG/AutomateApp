@@ -139,11 +139,9 @@ Les contributions sont les bienvenues. Pour contribuer :
 
 ## Auteurs
 
-- [Liste des membres du groupe]
-  - [Nom du chef de groupe] (Chef de groupe)
-  - [Membre 2]
-  - [Membre 3]
-  - ...
+- NOM: ALAIN DJOMO
+- EMAIL: alain.ng.tech@gmail.com
+- TEL: 672568572
 
 ## Licence
 
