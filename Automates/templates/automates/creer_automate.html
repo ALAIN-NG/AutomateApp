@@ -1,0 +1,59 @@
+{% extends 'automates/base.html' %}
+{% load form_filters %}
+{% block title %}Créer un Automate{% endblock %}
+{% block content %}
+
+<div class="max-w-xl mx-auto bg-white p-6 rounded shadow-md space-y-6">
+    <div class="text-center">
+        <h2 class="text-3xl font-bold text-blue-700 mb-1">
+            {% if automate %}🛠️ Modifier l’automate{% else %}➕ Créer un nouvel automate{% endif %}
+        </h2><br>
+        <a href="{% url 'generer_automate_expreg' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"> ⚙️ utilser une expression </a>
+        <br><br>
+        <p class="text-sm text-gray-500">
+            Saisissez les informations de base de l'automate que vous souhaitez gérer.
+        </p>
+    </div>
+
+    {% if form.errors %}
+        <div class="bg-red-100 text-red-700 border border-red-300 px-4 py-3 rounded">
+            <ul class="list-disc list-inside text-sm">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="post" class="space-y-5">
+        {% csrf_token %}
+        <div>
+            <label for="id_nom" class="block text-sm font-medium text-gray-700">Nom de l'automate</label>
+            {{ form.nom|add_class:"mt-1 w-full border border-gray-300 rounded px-3 py-2" }}
+        </div>
+
+        <div>
+            <label for="id_type" class="block text-sm font-medium text-gray-700">Type d'automate</label>
+            {{ form.type|add_class:"mt-1 w-full border border-gray-300 rounded px-3 py-2 bg-white" }}
+        </div>
+
+        <div>
+            <label for="id_alphabet" class="block text-sm font-medium text-gray-700">Alphabet (séparé par des virgules)</label>
+            {{ form.alphabet|add_class:"mt-1 w-full border border-gray-300 rounded px-3 py-2" }}
+        </div>
+
+        <div class="pt-4 flex justify-between items-center">
+            <a href="{% url 'liste_automates' %}" class="text-blue-600 hover:underline text-sm">⬅ Retour à la liste</a>
+            <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800 transition">
+                {% if automate %}💾 Enregistrer{% else %}➕ Créer{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

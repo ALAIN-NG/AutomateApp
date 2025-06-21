@@ -1,0 +1,46 @@
+{% extends 'automates/base.html' %}
+{% block title %}Liste des Automates{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <div class="flex items-center justify-between">
+        <h2 class="text-3xl font-bold text-blue-800">📚 Liste des Automates</h2>
+        <a href="{% url 'choisir_operation' %}" class="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded transition">
+            ⚙️ Opérations
+        </a>
+    </div>
+
+    {% if automates %}
+        <div class="space-y-4">
+            {% for automate in automates %}
+                <div class="bg-white p-5 rounded shadow-md hover:shadow-lg transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <a href="{% url 'details_automate' automate.id %}" class="text-xl font-semibold text-blue-700 hover:underline">
+                            {{ automate.nom }}
+                        </a>
+                        <p class="text-sm text-gray-600">Type : {{ automate.get_type_display }}</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <a href="{% url 'modifier_automate' automate.id %}"
+                           class="text-yellow-600 hover:text-yellow-700 font-medium transition">✏️ Modifier</a>
+                        <a href="{% url 'supprimer_automate' automate.id %}"
+                           class="text-red-600 hover:text-red-700 font-medium transition delete-link">🗑 Supprimer</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white p-4 rounded shadow text-center text-gray-500">
+            Aucun automate enregistré pour le moment.
+        </div>
+    {% endif %}
+
+    <div class="text-center pt-6">
+        <a href="{% url 'creer_automate' %}" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded shadow-md transition">
+            ➕ Créer un nouvel automate
+        </a>
+    </div>
+
+</div>
+{% endblock %}

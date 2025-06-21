@@ -1,0 +1,143 @@
+{% extends 'automates/base.html' %}
+{% block title %}Fermetures ε - {{ automate.nom }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- En-tête -->
+    <div class="bg-white p-6 rounded shadow">
+        <h2 class="text-2xl font-bold text-blue-800 mb-2">
+            ✨ Fermetures ε de <span class="text-green-700">{{ automate.nom }}</span>
+        </h2>
+        <p class="text-gray-600">Visualisation graphique de l'automate et des fermetures ε de chaque état.</p>
+    </div>
+
+    <!-- Visualisation -->
+    <div class="bg-white p-6 rounded shadow">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Visualisation de l'automate</h3>
+        <div id="automate_graph" class="h-96 border rounded"></div>
+    </div>
+
+    <!-- Fermetures ε -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for etat, fermeture in fermetures.items %}
+        <div class="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <h3 class="text-lg font-semibold text-blue-700 mb-2">
+                ε-fermeture({{ etat.nom }})
+            </h3>
+            <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+                {% for e in fermeture %}
+                    <li>{{ e.nom }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Bouton retour -->
+    <div class="flex justify-between items-center mt-6">
+        <a href="{% url 'details_automate' automate.id %}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Retour à l'automate
+        </a>
+    </div>
+</div>
+
+<!-- Scripts de visualisation -->
+<script src="https://unpkg.com/cytoscape@3.24.0/dist/cytoscape.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const nodes = [
+        {% for e in automate.etats.all %}
+        {
+            data: {
+                id: '{{ e.nom }}',
+                label: '{{ e.nom }}',
+                isInitial: {{ e.est_initial|yesno:"true,false" }},
+                isFinal: {{ e.est_final|yesno:"true,false" }}
+            },
+            classes: '{% if e.est_initial and e.est_final %}both{% elif e.est_initial %}initial{% elif e.est_final %}final{% endif %}'
+        },
+        {% endfor %}
+    ];
+
+    const edges = [
+        {% for t in automate.transitions.all %}
+        {
+            data: {
+                source: '{{ t.source.nom }}',
+                target: '{{ t.cible.nom }}',
+                label: '{{ t.symbole }}'
+            }
+        },
+        {% endfor %}
+    ];
+
+    cytoscape({
+        container: document.getElementById('automate_graph'),
+        elements: [...nodes, ...edges],
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'background-color': '#93c5fd',
+                    'border-width': 2,
+                    'border-color': '#3b82f6',
+                    'text-valign': 'center',
+                    'color': '#1f2937',
+                    'font-weight': 'bold',
+                    'width': 50,
+                    'height': 50
+                }
+            },
+            {
+                selector: 'node.initial',
+                style: {
+                    'background-color': '#86efac',
+                    'border-color': '#15803d'
+                }
+            },
+            {
+                selector: 'node.final',
+                style: {
+                    'background-color': '#fca5a5',
+                    'border-color': '#b91c1c'
+                }
+            },
+            {
+                selector: 'node.both',
+                style: {
+                    'background-color': '#fde68a',
+                    'border-color': '#b45309',
+                    'border-width': 3
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 2,
+                    'line-color': '#6b7280',
+                    'target-arrow-color': '#6b7280',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': 'data(label)',
+                    'font-size': '10px',
+                    'text-background-color': '#fff',
+                    'text-background-opacity': 1,
+                    'text-background-shape': 'roundrectangle'
+                }
+            }
+        ],
+        layout: {
+            name: 'cose',
+            animate: true,
+            nodeRepulsion: 4000,
+            idealEdgeLength: 100
+        }
+    });
+});
+</script>
+{% endblock %}

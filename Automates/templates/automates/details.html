@@ -1,0 +1,211 @@
+{% extends 'automates/base.html' %}
+{% block title %}Détails Automate{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8">
+
+    <!-- Informations générales -->
+    <div class="bg-white p-6 rounded shadow">
+        <h2 class="text-3xl font-bold text-blue-700 mb-1">{{ automate.nom }}</h2>
+        <p class="text-sm text-gray-500 italic">
+            Type : {{ automate.get_type_display }} | Alphabet : <code class="bg-gray-100 px-1 py-0.5 rounded">{{ automate.alphabet }}</code>
+        </p>
+        <div class="mt-2">
+            <a href="{% url 'modifier_automate' automate.id %}" class="text-blue-600 hover:underline text-sm">✏️ Modifier cet automate</a>
+        </div>
+    </div>
+
+    <!-- États et Transitions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- États -->
+        <div class="bg-white p-5 rounded shadow">
+            <h3 class="text-xl font-semibold text-gray-800 mb-3">📌 États</h3>
+            <ul class="space-y-2">
+                {% for etat in etats %}
+                <li class="flex justify-between items-center text-sm">
+                    <span>
+                        <span class="font-medium text-gray-800">{{ etat.nom }}</span>
+                        {% if etat.est_initial %}<span class="text-green-600"> (initial)</span>{% endif %}
+                        {% if etat.est_final %}<span class="text-red-600"> (final)</span>{% endif %}
+                    </span>
+                    <span class="space-x-2">
+                        <a href="{% url 'modifier_etat' etat.id %}" class="text-blue-600 hover:underline">📝</a>
+                        <a href="{% url 'supprimer_etat' etat.id %}" class="text-red-600 hover:underline delete-link">🗑</a>
+                    </span>
+                </li>
+                {% empty %}
+                    <li class="text-gray-500 italic">Aucun état enregistré.</li>
+                {% endfor %}
+            </ul>
+            <a href="{% url 'ajouter_etat' automate.id %}" class="inline-block mt-4 text-blue-700 hover:underline text-sm">➕ Ajouter un état</a>
+        </div>
+
+        <!-- Transitions -->
+        <div class="bg-white p-5 rounded shadow">
+            <h3 class="text-xl font-semibold text-gray-800 mb-3">🔀 Transitions</h3>
+            <ul class="space-y-2">
+                {% for t in transitions %}
+                <li class="flex justify-between items-center text-sm">
+                    <span>
+                        {{ t.source.nom }} — <span class="font-semibold">{{ t.symbole }}</span> → {{ t.cible.nom }}
+                    </span>
+                    <span class="space-x-2">
+                        <a href="{% url 'modifier_transition' t.id %}" class="text-blue-600 hover:underline">📝</a>
+                        <a href="{% url 'supprimer_transition' t.id %}" class="text-red-600 hover:underline delete-link">🗑</a>
+                    </span>
+                </li>
+                {% empty %}
+                    <li class="text-gray-500 italic">Aucune transition enregistrée.</li>
+                {% endfor %}
+            </ul>
+            <a href="{% url 'ajouter_transition' automate.id %}" class="inline-block mt-4 text-blue-700 hover:underline text-sm">➕ Ajouter une transition</a>
+        </div>
+    </div>
+
+    <!-- Tester un mot -->
+    <div class="bg-white p-6 rounded shadow">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">🧪 Tester un mot</h3>
+        <form id="testMotForm" class="flex flex-col sm:flex-row gap-3">
+            {% csrf_token %}
+            <input type="text" id="mot" name="mot" placeholder="ex: abba"
+                required class="border border-gray-300 px-4 py-2 rounded w-full sm:max-w-xs">
+            <button type="submit"
+                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded transition">Tester</button>
+        </form>
+        <p id="resultatTest" class="mt-4 text-center font-semibold"></p>
+    </div>
+
+    <!-- Visualisation -->
+    <div class="bg-white p-6 rounded shadow">
+        <h3 class="text-xl font-semibold mb-4 text-gray-800">🧭 Visualisation de l’automate</h3>
+        <div id="automateGraph" class="w-full h-[500px] border border-gray-300 rounded bg-gray-50"></div>
+    </div>
+
+</div>
+
+<script src="https://unpkg.com/cytoscape@3.24.0/dist/cytoscape.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const elements = [];
+
+    {% for etat in etats %}
+    elements.push({
+        data: { id: '{{ etat.nom }}', label: '{{ etat.nom }}{% if etat.est_initial %} (init){% endif %}{% if etat.est_final %} (final){% endif %}' },
+        classes: '{% if etat.est_initial %}initial {% endif %}{% if etat.est_final %}final{% endif %}'
+    });
+    {% endfor %}
+
+    {% for t in transitions %}
+    elements.push({
+        data: { source: '{{ t.source.nom }}', target: '{{ t.cible.nom }}', label: '{{ t.symbole }}' }
+    });
+    {% endfor %}
+
+    const cy = cytoscape({
+        container: document.getElementById('automateGraph'),
+        elements: elements,
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'text-valign': 'center',
+                    'color': '#1f2937',
+                    'background-color': '#bfdbfe',
+                    'border-width': 2,
+                    'border-color': '#1d4ed8',
+                    'font-weight': 'bold',
+                    'width': 60,
+                    'height': 60
+                }
+            },
+            {
+                selector: 'node.initial',
+                style: {
+                    'background-color': '#86efac',
+                    'border-color': '#15803d'
+                }
+            },
+            {
+                selector: 'node.final',
+                style: {
+                    'background-color': '#fca5a5',
+                    'border-color': '#b91c1c'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 3,
+                    'line-color': '#6b7280',
+                    'target-arrow-color': '#6b7280',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': 'data(label)',
+                    'font-size': '10px',
+                    'text-background-color': '#fff',
+                    'text-background-opacity': 1,
+                    'text-background-shape': 'roundrectangle'
+                }
+            },
+            {
+                selector: 'edge.highlighted',
+                style: {
+                    'line-color': '#008000',
+                    'target-arrow-color': '#008000',
+                    'width': 5
+                }
+            }
+        ],
+        layout: {
+            name: 'circle'
+        }
+    });
+
+    document.getElementById("testMotForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const mot = document.getElementById("mot").value;
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        function animerChemin(chemin, cy) {
+            cy.edges().removeClass('highlighted');
+            let i = 0;
+            function step() {
+                if (i >= chemin.length) return;
+                const t = chemin[i];
+                const edge = cy.edges().filter(edge =>
+                    edge.source().id() === t.source &&
+                    edge.target().id() === t.cible &&
+                    edge.data("label") === t.symbole
+                );
+                edge.addClass('highlighted');
+                i++;
+                setTimeout(step, 600);
+            }
+            step();
+        }
+
+        fetch("{% url 'tester_mot' automate.id %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": csrf
+            },
+            body: "mot=" + encodeURIComponent(mot)
+        })
+        .then(response => response.json())
+        .then(data => {
+            cy.edges().removeClass('highlighted');
+            if (data.chemins && data.chemins.length > 0) {
+                const chemin = data.chemins[0];
+                animerChemin(chemin, cy);
+            }
+            showNotification(
+                data.valide ? "✅ Mot accepté." : "❌ Mot rejeté.",
+                data.valide ? 'success' : 'error'
+            );
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,307 @@
+{% extends 'automates/base.html' %}
+{% block title %}{{ operation }}{% endblock %}
+{% block content %}
+
+<div class="space-y-6 max-w-6xl mx-auto">
+    <!-- En-tête -->
+    <div class="bg-white p-4 rounded shadow">
+        <h2 class="text-2xl font-bold text-blue-700">{{ operation }}</h2>
+        <p class="text-gray-600">
+                Résultat de l'émodage de l'automate
+        </p>
+    </div>
+
+    <!-- Étapes de l'algorithme -->
+    <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-xl font-semibold mb-2 text-gray-800">Étapes de l'algorithme</h3>
+        <ol class="list-decimal list-inside space-y-1 text-gray-700">
+            {% for etape in etapes %}
+                <li>{{ etape }}</li>
+            {% endfor %}
+        </ol>
+    </div>
+
+    <!-- Table des transitions -->
+    <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-xl font-semibold mb-2 text-gray-800">
+                Table des transitions résultantes
+        </h3>
+        <table class="w-full text-sm text-left border border-gray-300">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="p-2 border">État source</th>
+                    <th class="p-2 border">Symbole</th>
+                    <th class="p-2 border">État cible</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in automate_resultat.transitions.all %}
+                <tr>
+                    <td class="p-2 border">{{ t.source.nom }}</td>
+                    <td class="p-2 border">{{ t.symbole }}</td>
+                    <td class="p-2 border">{{ t.cible.nom }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Légende -->
+    <div class="flex flex-wrap gap-4 items-center text-sm">
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-green-300 border border-green-700 rounded-full"></div>
+            État initial
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-red-300 border border-red-700 rounded-full"></div>
+            État final
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-yellow-300 border border-yellow-700 rounded-full"></div>
+            État initial et final
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-blue-300 border border-blue-700 rounded-full"></div>
+            État normal
+        </div>
+        {% if not automate_resultat %}
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-purple-300 border border-purple-700 rounded-full"></div>
+            État utile (conservé)
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Visualisation -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for a in automates_origine %}
+        <div class="bg-white p-4 rounded shadow relative">
+            <h3 class="text-lg font-semibold text-blue-600">Automate original: {{ a.nom }}</h3>
+            <div id="automate_original" class="h-64 border rounded"></div>
+            <button onclick="ouvrirPleinEcran('automate_original', '{{ a.nom }}')" 
+                    class="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                🔍 Agrandir
+            </button>
+        </div>
+        {% endfor %}
+
+        <div class="bg-white p-4 rounded shadow relative">
+            <h3 class="text-lg font-semibold {% if automate_resultat %}text-green-700{% else %}text-gray-500{% endif %}">
+                {% if automate_resultat %}
+                    Automate Résultant: {{ automate_resultat.nom }}
+                {% else %}
+                    Aperçu de l'automate émodé
+                {% endif %}
+            </h3>
+            <div id="automate_resultat" class="h-64 border rounded"></div>
+            {% if automate_resultat %}
+            <button onclick="ouvrirPleinEcran('automate_resultat', '{{ automate_resultat.nom }}')" 
+                    class="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                🔍 Agrandir
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-white p-4 rounded shadow">
+        <div class="text-right">
+            <a href="{% url 'details_automate' automate_resultat.id %}" 
+               class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                Voir l'automate résultant
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Modale plein écran -->
+<div id="modalGraph" class="fixed inset-0 bg-black bg-opacity-60 hidden justify-center items-center z-50">
+    <div class="bg-white rounded shadow-lg w-11/12 h-[90%] relative">
+        <button onclick="fermerPleinEcran()" class="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded text-sm">✖ Fermer</button>
+        <h3 id="modalTitle" class="text-lg font-bold text-center text-blue-700 py-2"></h3>
+        <div id="graphFull" class="h-[90%] w-full border-t"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/cytoscape@3.24.0/dist/cytoscape.min.js"></script>
+<script>
+const graphs = {};
+
+document.addEventListener("DOMContentLoaded", function () {
+    // Données pour l'automate original
+    const originalElements = {
+        nodes: [
+            {% for e in automates_origine.0.etats.all %}
+            { 
+                data: { 
+                    id: '{{ e.nom }}', 
+                    label: '{{ e.nom }}',
+                    isInitial: {{ e.est_initial|yesno:"true,false" }},
+                    isFinal: {{ e.est_final|yesno:"true,false" }},
+                    isUseful: {% if utiles and e in utiles %}true{% else %}false{% endif %}
+                },
+                classes: '{% if e.est_initial and e.est_final %}both{% elif e.est_initial %}initial{% elif e.est_final %}final{% endif %} {% if utiles and e in utiles %}useful{% endif %}'
+            },
+            {% endfor %}
+        ],
+        edges: [
+            {% for t in automates_origine.0.transitions.all %}
+            { 
+                data: { 
+                    source: '{{ t.source.nom }}', 
+                    target: '{{ t.cible.nom }}', 
+                    label: '{{ t.symbole }}',
+                    isUseful: {% if utiles and t.source in utiles and t.cible in utiles %}true{% else %}false{% endif %}
+                } 
+            },
+            {% endfor %}
+        ]
+    };
+
+    // Créer le graphe original
+    graphs['automate_original'] = cytoscape({
+        container: document.getElementById('automate_original'),
+        elements: originalElements,
+        style: getCyStyle(),
+        layout: { name: 'cose' }
+    });
+
+    {% if automate_resultat %}
+    // Données pour l'automate résultant
+    const resultElements = {
+        nodes: [
+            {% for e in automate_resultat.etats.all %}
+            { 
+                data: { 
+                    id: '{{ e.nom }}', 
+                    label: '{{ e.nom }}',
+                    isInitial: {{ e.est_initial|yesno:"true,false" }},
+                    isFinal: {{ e.est_final|yesno:"true,false" }}
+                },
+                classes: '{% if e.est_initial and e.est_final %}both{% elif e.est_initial %}initial{% elif e.est_final %}final{% endif %}'
+            },
+            {% endfor %}
+        ],
+        edges: [
+            {% for t in automate_resultat.transitions.all %}
+            { 
+                data: { 
+                    source: '{{ t.source.nom }}', 
+                    target: '{{ t.cible.nom }}', 
+                    label: '{{ t.symbole }}'
+                } 
+            },
+            {% endfor %}
+        ]
+    };
+
+    // Créer le graphe résultant
+    graphs['automate_resultat'] = cytoscape({
+        container: document.getElementById('automate_resultat'),
+        elements: resultElements,
+        style: getCyStyle(),
+        layout: { name: 'cose' }
+    });
+    {% endif %}
+});
+
+function getCyStyle() {
+    return [
+        {
+            selector: 'node',
+            style: {
+                'label': 'data(label)',
+                'background-color': '#93c5fd',
+                'border-width': 2,
+                'border-color': '#3b82f6',
+                'text-valign': 'center',
+                'color': '#1f2937',
+                'font-weight': 'bold',
+                'width': 50,
+                'height': 50
+            }
+        },
+        {
+            selector: 'node.initial',
+            style: {
+                'background-color': '#86efac',
+                'border-color': '#15803d'
+            }
+        },
+        {
+            selector: 'node.final',
+            style: {
+                'background-color': '#fca5a5',
+                'border-color': '#b91c1c'
+            }
+        },
+        {
+            selector: 'node.both',
+            style: {
+                'background-color': '#fde68a',
+                'border-color': '#b45309',
+                'border-width': 3
+            }
+        },
+        {
+            selector: 'node.useful',
+            style: {
+                'border-style': 'dashed',
+                'border-width': 3,
+                'border-color': '#7e22ce'
+            }
+        },
+        {
+            selector: 'edge',
+            style: {
+                'width': 2,
+                'line-color': '#6b7280',
+                'target-arrow-color': '#6b7280',
+                'target-arrow-shape': 'triangle',
+                'curve-style': 'bezier',
+                'label': 'data(label)',
+                'font-size': '10px',
+                'text-background-color': '#fff',
+                'text-background-opacity': 1,
+                'text-background-shape': 'roundrectangle'
+            }
+        },
+        {
+            selector: 'edge[isUseful = "true"]',
+            style: {
+                'line-color': '#9333ea',
+                'target-arrow-color': '#9333ea',
+                'width': 3
+            }
+        }
+    ];
+}
+
+function ouvrirPleinEcran(id, nom) {
+    const modal = document.getElementById("modalGraph");
+    const container = document.getElementById("graphFull");
+    container.innerHTML = '';
+    document.getElementById("modalTitle").innerText = "Automate : " + nom;
+
+    modal.classList.remove("hidden");
+
+    // Recréer le graphe dans la modale
+    const original = graphs[id];
+    cytoscape({
+        container: container,
+        elements: original.json().elements,
+        style: original.style().json(),
+        layout: { 
+            name: 'cose',
+            animate: true,
+            nodeRepulsion: 8000,
+            idealEdgeLength: 150
+        }
+    });
+}
+
+function fermerPleinEcran() {
+    document.getElementById("modalGraph").classList.add("hidden");
+}
+</script>
+{% endblock %}

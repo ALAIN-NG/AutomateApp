@@ -1,0 +1,56 @@
+{% extends 'automates/base.html' %}
+{% load form_filters %}
+{% block title %}Ajouter une Transition{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto space-y-6">
+    <div class="bg-white p-6 rounded shadow-md">
+        <h2 class="text-2xl font-bold text-blue-800 mb-4">
+            {% if transition %}
+                ✏️ Modifier la transition {{ transition.source }} — {{ transition.symbole }} → {{ transition.cible }}
+            {% else %}
+                ➕ Ajouter une transition à <span class="text-green-700">{{ automate.nom }}</span>
+            {% endif %}
+        </h2>
+
+        {% if form.errors %}
+            <div class="bg-red-100 text-red-700 border border-red-300 px-4 py-3 rounded mb-4">
+                <ul class="list-disc list-inside text-sm">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 gap-4">
+                <div>
+                    <label for="id_source" class="block text-sm font-medium text-gray-700">État source</label>
+                    {{ form.source|add_class:"mt-1 block w-full border border-gray-300 rounded px-3 py-2" }}
+                </div>
+                <div>
+                    <label for="id_symbole" class="block text-sm font-medium text-gray-700">Symbole</label>
+                    {{ form.symbole|add_class:"mt-1 block w-full border border-gray-300 rounded px-3 py-2" }}
+                </div>
+                <div>
+                    <label for="id_cible" class="block text-sm font-medium text-gray-700">État cible</label>
+                    {{ form.cible|add_class:"mt-1 block w-full border border-gray-300 rounded px-3 py-2" }}
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800 transition">
+                    {% if transition %}💾 Enregistrer la modification{% else %}➕ Ajouter la transition{% endif %}
+                </button>
+                <a href="{% url 'details_automate' automate.id %}" class="ml-4 text-blue-600 hover:underline text-sm">⬅ Retour à l’automate</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

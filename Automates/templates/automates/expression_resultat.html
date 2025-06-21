@@ -1,0 +1,147 @@
+{% extends 'automates/base.html' %}
+{% block title %}Expression Régulière - {{ automate.nom }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- En-tête -->
+    <div class="bg-white p-6 rounded shadow">
+        <h2 class="text-2xl font-bold text-purple-800 mb-2">
+            🧠 Expression Régulière de <span class="text-green-700">{{ automate.nom }}</span>
+        </h2>
+        <p class="text-gray-600">
+            Génération de l'expression régulière équivalente à l'automate via l'élimination d'états.
+        </p>
+    </div>
+
+    <!-- Expression régulière -->
+    <div class="bg-white p-6 rounded shadow border border-purple-300">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">
+            📌 Expression régulière obtenue :
+        </h3>
+        {% if expression %}
+            <div class="bg-purple-100 text-purple-900 p-4 rounded border border-purple-400 font-mono text-lg">
+                {{ expression|safe }}
+            </div>
+        {% else %}
+            <div class="text-red-600 font-semibold">
+                Aucune expression régulière n'a pu être générée pour cet automate.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Visualisation de l'automate -->
+    <div class="bg-white p-6 rounded shadow">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">
+            🎯 Visualisation de l'automate
+        </h3>
+        <div id="automate_graph" class="h-96 border rounded"></div>
+    </div>
+
+    <!-- Bouton retour -->
+    <div class="flex justify-between items-center mt-6">
+        <a href="{% url 'details_automate' automate.id %}" class="inline-flex items-center text-purple-600 hover:text-purple-800">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Retour à l'automate
+        </a>
+    </div>
+</div>
+
+<!-- Script de visualisation Cytoscape -->
+<script src="https://unpkg.com/cytoscape@3.24.0/dist/cytoscape.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const nodes = [
+        {% for e in automate.etats.all %}
+        {
+            data: {
+                id: '{{ e.nom }}',
+                label: '{{ e.nom }}',
+                isInitial: {{ e.est_initial|yesno:"true,false" }},
+                isFinal: {{ e.est_final|yesno:"true,false" }}
+            },
+            classes: '{% if e.est_initial and e.est_final %}both{% elif e.est_initial %}initial{% elif e.est_final %}final{% endif %}'
+        },
+        {% endfor %}
+    ];
+
+    const edges = [
+        {% for t in automate.transitions.all %}
+        {
+            data: {
+                source: '{{ t.source.nom }}',
+                target: '{{ t.cible.nom }}',
+                label: '{{ t.symbole }}'
+            }
+        },
+        {% endfor %}
+    ];
+
+    cytoscape({
+        container: document.getElementById('automate_graph'),
+        elements: [...nodes, ...edges],
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'background-color': '#e9d5ff',
+                    'border-width': 2,
+                    'border-color': '#9333ea',
+                    'text-valign': 'center',
+                    'color': '#1f2937',
+                    'font-weight': 'bold',
+                    'width': 50,
+                    'height': 50
+                }
+            },
+            {
+                selector: 'node.initial',
+                style: {
+                    'background-color': '#bbf7d0',
+                    'border-color': '#15803d'
+                }
+            },
+            {
+                selector: 'node.final',
+                style: {
+                    'background-color': '#fecaca',
+                    'border-color': '#b91c1c'
+                }
+            },
+            {
+                selector: 'node.both',
+                style: {
+                    'background-color': '#fef08a',
+                    'border-color': '#b45309',
+                    'border-width': 3
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 2,
+                    'line-color': '#6b7280',
+                    'target-arrow-color': '#6b7280',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': 'data(label)',
+                    'font-size': '10px',
+                    'text-background-color': '#fff',
+                    'text-background-opacity': 1,
+                    'text-background-shape': 'roundrectangle'
+                }
+            }
+        ],
+        layout: {
+            name: 'cose',
+            animate: true,
+            nodeRepulsion: 4000,
+            idealEdgeLength: 100
+        }
+    });
+});
+</script>
+{% endblock %}

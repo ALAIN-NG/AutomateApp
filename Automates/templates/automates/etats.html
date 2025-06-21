@@ -1,0 +1,342 @@
+{% extends 'automates/base.html' %}
+{% load form_filters %}
+{% block title %}Analyse des États - {{ automate.nom }}{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto space-y-6">
+    <!-- En-tête -->
+    <div class="bg-white p-6 rounded shadow">
+        <h2 class="text-2xl font-bold text-blue-800 mb-2">
+            🔍 Analyse des états pour <span class="text-green-700">{{ automate.nom }}</span>
+        </h2>
+        <p class="text-gray-600">Analyse complète des états accessibles, co-accessibles et utiles de l'automate.</p>
+    </div>
+
+    <!-- Cartes d'analyse -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Carte des états accessibles -->
+        <div class="border border-blue-100 rounded-lg p-4 bg-blue-50">
+            <h3 class="text-lg font-semibold text-blue-700 mb-3 flex items-center">
+                <span class="inline-block w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mr-2">1</span>
+                États accessibles
+            </h3>
+            <div class="space-y-2">
+                {% if accessibles %}
+                    <ul class="divide-y divide-blue-100">
+                        {% for etat in accessibles %}
+                        <li class="py-2 flex items-center">
+                            <span class="w-4 h-4 rounded-full bg-blue-500 mr-2"></span>
+                            {{ etat.nom }}
+                            {% if etat.est_initial %}
+                            <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">initial</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-500 italic">Aucun état accessible</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Carte des états co-accessibles -->
+        <div class="border border-purple-100 rounded-lg p-4 bg-purple-50">
+            <h3 class="text-lg font-semibold text-purple-700 mb-3 flex items-center">
+                <span class="inline-block w-6 h-6 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center mr-2">2</span>
+                États co-accessibles
+            </h3>
+            <div class="space-y-2">
+                {% if coaccessibles %}
+                    <ul class="divide-y divide-purple-100">
+                        {% for etat in coaccessibles %}
+                        <li class="py-2 flex items-center">
+                            <span class="w-4 h-4 rounded-full bg-purple-500 mr-2"></span>
+                            {{ etat.nom }}
+                            {% if etat.est_final %}
+                            <span class="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">final</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-500 italic">Aucun état co-accessible</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Carte des états utiles -->
+        <div class="border border-green-100 rounded-lg p-4 bg-green-50">
+            <h3 class="text-lg font-semibold text-green-700 mb-3 flex items-center">
+                <span class="inline-block w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center mr-2">3</span>
+                États utiles
+            </h3>
+            <div class="space-y-2">
+                {% if utiles %}
+                    <ul class="divide-y divide-green-100">
+                        {% for etat in utiles %}
+                        <li class="py-2 flex items-center">
+                            <span class="w-4 h-4 rounded-full bg-green-500 mr-2"></span>
+                            {{ etat.nom }}
+                            {% if etat.est_initial %}
+                            <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">initial</span>
+                            {% endif %}
+                            {% if etat.est_final %}
+                            <span class="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">final</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-500 italic">Aucun état utile</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Visualisation de l'automate -->
+    <div class="bg-white p-6 rounded shadow">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-gray-800">Visualisation de l'automate</h3>
+            <button onclick="ouvrirPleinEcran('automate_graph', '{{ automate.nom }}')" class="bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+                </svg>
+                Plein écran
+            </button>
+        </div>
+        
+        <div id="automate_graph" class="h-96 border rounded"></div>
+        
+        <!-- Légende -->
+        <div class="flex flex-wrap gap-4 mt-4 text-sm">
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-green-300 border border-green-700 rounded-full"></div>
+                État initial
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-red-300 border border-red-700 rounded-full"></div>
+                État final
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-yellow-300 border border-yellow-700 rounded-full"></div>
+                État initial et final
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-blue-300 border border-blue-700 rounded-full"></div>
+                État normal
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-purple-300 border border-purple-700 rounded-full"></div>
+                État utile
+            </div>
+        </div>
+    </div>
+
+    <!-- Table des transitions -->
+    <div class="bg-white p-6 rounded shadow">
+        <h3 class="text-xl font-semibold mb-4 text-gray-800">Table des transitions</h3>
+        <table class="w-full text-sm text-left border border-gray-300">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="p-2 border">État source</th>
+                    <th class="p-2 border">Symbole</th>
+                    <th class="p-2 border">État cible</th>
+                    <th class="p-2 border">Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in automate.transitions.all %}
+                <tr class="{% cycle 'bg-white' 'bg-gray-50' %}">
+                    <td class="p-2 border {% if t.source in utiles %}bg-purple-50{% endif %}">
+                        {{ t.source.nom }}
+                        {% if t.source.est_initial %}<span class="text-xs text-green-600">(init)</span>{% endif %}
+                    </td>
+                    <td class="p-2 border">{{ t.symbole }}</td>
+                    <td class="p-2 border {% if t.cible in utiles %}bg-purple-50{% endif %}">
+                        {{ t.cible.nom }}
+                        {% if t.cible.est_final %}<span class="text-xs text-red-600">(final)</span>{% endif %}
+                    </td>
+                    <td class="p-2 border text-xs">
+                        {% if t.source in utiles and t.cible in utiles %}
+                            <span class="text-purple-600">Utile</span>
+                        {% elif t.source in accessibles and t.cible in accessibles %}
+                            <span class="text-blue-600">Accessible</span>
+                        {% elif t.source in coaccessibles and t.cible in coaccessibles %}
+                            <span class="text-purple-600">Co-accessible</span>
+                        {% else %}
+                            <span class="text-gray-500">Non utile</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-between items-center">
+        <a href="{% url 'details_automate' automate.id %}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Retour à l'automate
+        </a>
+        <span class="text-sm text-gray-500">
+            {{ accessibles|length }} accessible(s) • {{ coaccessibles|length }} co-accessible(s) • {{ utiles|length }} utile(s)
+        </span>
+    </div>
+</div>
+
+<!-- Modale plein écran -->
+<div id="modalGraph" class="fixed inset-0 bg-black bg-opacity-60 hidden justify-center items-center z-50">
+    <div class="bg-white rounded shadow-lg w-11/12 h-[90%] relative">
+        <button onclick="fermerPleinEcran()" class="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded text-sm">✖ Fermer</button>
+        <h3 id="modalTitle" class="text-lg font-bold text-center text-blue-700 py-2"></h3>
+        <div id="graphFull" class="h-[90%] w-full border-t"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/cytoscape@3.24.0/dist/cytoscape.min.js"></script>
+<script>
+let cy; // Référence à Cytoscape
+
+document.addEventListener("DOMContentLoaded", function () {
+    // Préparer les données pour Cytoscape
+    const nodes = [
+        {% for e in automate.etats.all %}
+        { 
+            data: { 
+                id: '{{ e.nom }}', 
+                label: '{{ e.nom }}',
+                isInitial: {{ e.est_initial|yesno:"true,false" }},
+                isFinal: {{ e.est_final|yesno:"true,false" }},
+                isUseful: {{ utiles|yesno:"true,false" }}
+            }, 
+            classes: '{% if e.est_initial and e.est_final %}both{% elif e.est_initial %}initial{% elif e.est_final %}final{% endif %} {% if e in utiles %}useful{% endif %}' 
+        },
+        {% endfor %}
+    ];
+
+    const edges = [
+        {% for t in automate.transitions.all %}
+        { 
+            data: { 
+                source: '{{ t.source.nom }}', 
+                target: '{{ t.cible.nom }}', 
+                label: '{{ t.symbole }}',
+                isUseful: {% if t.source in utiles and t.cible in utiles %}true{% else %}false{% endif %}
+            } 
+        },
+        {% endfor %}
+    ];
+
+    // Créer le graphe
+    cy = cytoscape({
+        container: document.getElementById('automate_graph'),
+        elements: [...nodes, ...edges],
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'background-color': '#93c5fd',
+                    'border-width': 2,
+                    'border-color': '#3b82f6',
+                    'text-valign': 'center',
+                    'color': '#1f2937',
+                    'font-weight': 'bold',
+                    'width': 50,
+                    'height': 50
+                }
+            },
+            {
+                selector: 'node.initial',
+                style: {
+                    'background-color': '#86efac',
+                    'border-color': '#15803d'
+                }
+            },
+            {
+                selector: 'node.final',
+                style: {
+                    'background-color': '#fca5a5',
+                    'border-color': '#b91c1c'
+                }
+            },
+            {
+                selector: 'node.both',
+                style: {
+                    'background-color': '#fde68a',
+                    'border-color': '#b45309',
+                    'border-width': 3
+                }
+            },
+            {
+                selector: 'node.useful',
+                style: {
+                    'border-style': 'dashed',
+                    'border-width': 3,
+                    'border-color': '#7e22ce'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 2,
+                    'line-color': '#6b7280',
+                    'target-arrow-color': '#6b7280',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': 'data(label)',
+                    'font-size': '10px',
+                    'text-background-color': '#fff',
+                    'text-background-opacity': 1,
+                    'text-background-shape': 'roundrectangle'
+                }
+            },
+            {
+                selector: 'edge[isUseful = "true"]',
+                style: {
+                    'line-color': '#9333ea',
+                    'target-arrow-color': '#9333ea',
+                    'width': 3
+                }
+            }
+        ],
+        layout: {
+            name: 'cose',
+            animate: true,
+            nodeRepulsion: 4000,
+            idealEdgeLength: 100
+        }
+    });
+});
+
+function ouvrirPleinEcran(id, nom) {
+    const modal = document.getElementById("modalGraph");
+    const container = document.getElementById("graphFull");
+    container.innerHTML = '';
+    document.getElementById("modalTitle").innerText = "Automate : " + nom;
+
+    modal.classList.remove("hidden");
+
+    // Recréer le graphe dans la modale
+    const elements = cy.json().elements;
+    cytoscape({
+        container: container,
+        elements: elements,
+        style: cy.style().json(),
+        layout: {
+            name: 'cose',
+            animate: true,
+            nodeRepulsion: 8000,
+            idealEdgeLength: 150
+        }
+    });
+}
+
+function fermerPleinEcran() {
+    document.getElementById("modalGraph").classList.add("hidden");
+}
+</script>
+{% endblock %}

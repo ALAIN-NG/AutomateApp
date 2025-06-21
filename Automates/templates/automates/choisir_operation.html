@@ -1,0 +1,167 @@
+{% extends 'automates/base.html' %}
+{% block title %}Choisir une opération{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <div class="text-center">
+        <h2 class="text-3xl font-bold text-blue-700 mb-2">⚙️ Choisir une opération</h2>
+        <p class="text-gray-600 text-sm">Sélectionnez l'opération à effectuer et les automate(s) concernés.</p>
+    </div>
+
+    <form method="post" class="bg-white p-6 rounded shadow-md space-y-6">
+        {% csrf_token %}
+
+        <!-- 🔘 Choix de l'opération -->
+
+        <div>
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">1️⃣ Sélectionnez une opération</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="union" data-nb="2" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Union</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="intersection" data-nb="2" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Intersection</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="complementaire" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Complémentaire</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="Miroir" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Cloture par Miroir</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="difference" data-nb="2" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Difference</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="quotient" data-nb="2" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Quotient</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="Concatenation" data-nb="2" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Concatenation</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="determinisation" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Déterminisation</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="minimisation" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Minimisation</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="canonisation" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Canonisation</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="etoile_kleene" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Cloture de Kleene</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="analyse_etats" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Analyse des Etats</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="emodage" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Émodage (simplification)</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="completion" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Completer Automate</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="Fermeture" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Epsilon Fermeture</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="AFD_vers_AFN" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">AFD vers AFN</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="epsilon-AFN_vers_AFN" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Epsilon-AFN vers AFN</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="epsilon-AFN_vers_AFD" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">Epsilon-AFN vers AFD</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="AFD_vers_epsilon-AFN" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">AFD vers EFN</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="AFN_vers_epsilon-AFN" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">AFN vers EFN</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 cursor-pointer transition">
+                    <input type="radio" name="operation" value="expression" data-nb="1" class="accent-blue-600">
+                    <span class="text-sm text-gray-800">automate vers expression</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- 🧩 Choix des automates -->
+        <div>
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">2️⃣ Sélectionnez les automate(s)</h3>
+            <ul class="grid sm:grid-cols-2 gap-3">
+                {% for automate in automates %}
+                <li class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300 hover:bg-gray-100 transition">
+                    <input type="checkbox" name="automates" value="{{ automate.id }}" id="a{{ automate.id }}" class="accent-green-600">
+                    <label for="a{{ automate.id }}" class="text-sm text-gray-700">
+                        {{ automate.nom }} <span class="text-gray-500 text-xs">({{ automate.get_type_display }})</span>
+                    </label>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="text-right pt-4">
+            <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded shadow transition">
+                ➕ Appliquer l’opération
+            </button>
+        </div>
+    </form>
+
+    {% if error_message %}
+    <div class="bg-red-100 text-red-700 px-4 py-3 rounded mb-4 border border-red-400">
+        ⚠️ {{ error_message }}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const radios = document.querySelectorAll('input[name="operation"]');
+    const checkboxes = document.querySelectorAll('input[name="automates"]');
+
+    function updateLimit() {
+        const selectedOp = document.querySelector('input[name="operation"]:checked');
+        const limit = selectedOp?.dataset.nb || 0;
+
+        const checked = Array.from(checkboxes).filter(cb => cb.checked);
+
+        checkboxes.forEach(cb => {
+            cb.disabled = checked.length >= limit && !cb.checked;
+        });
+    }
+
+    radios.forEach(r => {
+        r.addEventListener('change', () => {
+            checkboxes.forEach(cb => {
+                cb.checked = false;
+                cb.disabled = false;
+            });
+            updateLimit();
+        });
+    });
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateLimit));
+});
+</script>
+{% endblock %}
