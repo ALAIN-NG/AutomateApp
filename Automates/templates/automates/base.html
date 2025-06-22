@@ -32,13 +32,13 @@
                 </button>
 
                 <!-- Menu mobile compact (en haut à droite) -->
-                <div id="mobile-menu"
-                     class="hidden absolute right-0 mt-2 w-48 bg-white text-blue-700 rounded shadow-md z-50 flex flex-col">
-                    <a href="{% url 'liste_automates' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-800 transition">Accueil</a>
-                    <a href="{% url 'creer_automate' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-800 transition">Créer un automate</a>
-                    <a href="{% url 'resoudre_equations' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-800 transition">Équations</a>
-                    <a href="{% url 'choisir_operation' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-800 transition">⚙️ Opérations</a>
-                    </div>
+               <div id="mobile-menu"
+                     class="hidden absolute right-4 top-14 w-60 bg-white border border-blue-200 rounded-xl shadow-lg z-50 flex flex-col py-2 space-y-2 animate-fade-in">
+                    <a href="{% url 'liste_automates' %}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-center">Accueil</a>
+                    <a href="{% url 'creer_automate' %}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-center">Créer un automate</a>
+                    <a href="{% url 'resoudre_equations' %}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-center">Équations</a>
+                    <a href="{% url 'choisir_operation' %}" class="mx-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-center">⚙️ Opérations</a>
+                </div>
             </div>
         </div>
     </header>
