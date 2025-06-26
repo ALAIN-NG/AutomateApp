@@ -1251,127 +1251,255 @@ def eliminer_epsilon_et_determiniser(automate):
 
 
 import re
+from abc import ABC, abstractmethod
+from typing import Dict, List, Set
+
+class ASTNode(ABC):
+    @abstractmethod
+    def simplify(self) -> 'ASTNode': pass
+
+    @abstractmethod
+    def substitute(self, substitutions: Dict[str, 'ASTNode']) -> 'ASTNode': pass
+
+    @abstractmethod
+    def __str__(self) -> str: pass
+
+    @abstractmethod
+    def variables(self) -> Set[str]: pass
+
+    @abstractmethod
+    def is_epsilon(self) -> bool: pass
+
+    @abstractmethod
+    def factorize(self) -> 'ASTNode': pass
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, ASTNode) and str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
+
+class VariableNode(ASTNode):
+    def __init__(self, name: str): self.name = name
+    def simplify(self): return self
+    def substitute(self, substitutions): return substitutions.get(self.name, self)
+    def __str__(self): return self.name
+    def variables(self): return {self.name}
+    def is_epsilon(self): return False
+    def factorize(self): return self
+
+class LetterNode(ASTNode):
+    def __init__(self, letter: str): self.letter = letter
+    def simplify(self): return self
+    def substitute(self, substitutions): return self
+    def __str__(self): return self.letter
+    def variables(self): return set()
+    def is_epsilon(self): return False
+    def factorize(self): return self
+
+class EpsilonNode(ASTNode):
+    def simplify(self): return self
+    def substitute(self, substitutions): return self
+    def __str__(self): return "ε"
+    def variables(self): return set()
+    def is_epsilon(self): return True
+    def factorize(self): return self
+
+class ConcatNode(ASTNode):
+    def __init__(self, left: ASTNode, right: ASTNode):
+        self.left = left
+        self.right = right
+    def simplify(self):
+        l, r = self.left.simplify(), self.right.simplify()
+        if l.is_epsilon(): return r
+        if r.is_epsilon(): return l
+        return ConcatNode(l, r)
+    def substitute(self, substitutions):
+        return ConcatNode(self.left.substitute(substitutions), self.right.substitute(substitutions))
+    def __str__(self):
+        l = f"({self.left})" if isinstance(self.left, UnionNode) else str(self.left)
+        r = f"({self.right})" if isinstance(self.right, UnionNode) else str(self.right)
+        return f"{l}{r}"
+    def variables(self): return self.left.variables().union(self.right.variables())
+    def is_epsilon(self): return False
+    def factorize(self): return ConcatNode(self.left.factorize(), self.right.factorize())
+
+class UnionNode(ASTNode):
+    def __init__(self, *nodes: ASTNode): self.nodes = list(nodes)
+    def simplify(self):
+        flat, seen, res = [], set(), []
+        for n in self.nodes:
+            s = n.simplify()
+            flat.extend(s.nodes if isinstance(s, UnionNode) else [s])
+        has_non_eps = any(not n.is_epsilon() for n in flat)
+        for n in flat:
+            if n.is_epsilon() and has_non_eps: continue
+            if str(n) not in seen:
+                seen.add(str(n))
+                res.append(n)
+        if not res: return EpsilonNode()
+        if len(res) == 1: return res[0]
+        return UnionNode(*res)
+    def substitute(self, substitutions):
+        return UnionNode(*[n.substitute(substitutions) for n in self.nodes])
+    def __str__(self): return "+".join(str(n) for n in self.nodes)
+    def variables(self): return set().union(*(n.variables() for n in self.nodes))
+    def is_epsilon(self): return all(n.is_epsilon() for n in self.nodes)
+    def factorize(self):
+        simplified = self.simplify()
+        if not isinstance(simplified, UnionNode): return simplified
+        groups, mapping = {}, {}
+        for n in simplified.nodes:
+            f = self._get_first_factor(n)
+            key = str(f)
+            mapping[key] = f
+            groups.setdefault(key, []).append(n)
+        factored = []
+        for k, terms in groups.items():
+            if len(terms) > 1:
+                rest = [self._extract_remaining_part(t, mapping[k]) for t in terms]
+                factored.append(ConcatNode(mapping[k], UnionNode(*rest).simplify()))
+            else:
+                factored.extend(terms)
+        if set(str(t) for t in factored) == set(str(n) for n in simplified.nodes):
+            return simplified
+        return UnionNode(*factored).simplify()
+    def _get_first_factor(self, node: ASTNode) -> ASTNode:
+        return node.left if isinstance(node, ConcatNode) else node
+    def _extract_remaining_part(self, node: ASTNode, factor: ASTNode) -> ASTNode:
+        if isinstance(node, ConcatNode) and node.left == factor:
+            return node.right
+        return EpsilonNode()
+
+class StarNode(ASTNode):
+    def __init__(self, node: ASTNode): self.node = node
+    def simplify(self):
+        inner = self.node.simplify()
+        if inner.is_epsilon(): return EpsilonNode()
+        if isinstance(inner, StarNode): return inner
+        return StarNode(inner)
+    def substitute(self, substitutions):
+        return StarNode(self.node.substitute(substitutions))
+    def __str__(self):
+        s = str(self.node)
+        return f"({s})*" if isinstance(self.node, (UnionNode, ConcatNode)) else f"{s}*"
+    def variables(self): return self.node.variables()
+    def is_epsilon(self): return False
+    def factorize(self): return StarNode(self.node.factorize())
+
+class Parser:
+    @staticmethod
+    def parse(expression: str) -> ASTNode:
+        return Parser(expression.replace(' ', ''))._parse_union()
+    def __init__(self, expression: str):
+        self.expression = expression
+        self.pos = 0
+    def _current(self):
+        return self.expression[self.pos] if self.pos < len(self.expression) else None
+    def _advance(self): self.pos += 1
+    def _parse_union(self):
+        nodes = [self._parse_concat()]
+        while self._current() == '+':
+            self._advance()
+            nodes.append(self._parse_concat())
+        return UnionNode(*nodes) if len(nodes) > 1 else nodes[0]
+    def _parse_concat(self):
+        left = self._parse_star()
+        while self._current() and self._current() not in '+)':
+            right = self._parse_star()
+            left = ConcatNode(left, right)
+        return left
+    def _parse_star(self):
+        node = self._parse_atom()
+        while self._current() == '*':
+            self._advance()
+            node = StarNode(node)
+        return node
+    def _parse_atom(self):
+        c = self._current()
+        if c == '(':
+            self._advance()
+            node = self._parse_union()
+            if self._current() != ')': raise ValueError("Missing closing parenthesis")
+            self._advance()
+            return node
+        elif c == 'ε':
+            self._advance()
+            return EpsilonNode()
+        elif c == 'X':
+            name = 'X'
+            self._advance()
+            while self._current() and self._current().isdigit():
+                name += self._current()
+                self._advance()
+            return VariableNode(name)
+        elif c and re.match(r'[a-z]', c):
+            letter = c
+            self._advance()
+            return LetterNode(letter)
+        else:
+            raise ValueError(f"Unexpected character: {c}")
 
 class EquationSolver:
     def __init__(self, systeme_texte):
-        self.systeme_texte = systeme_texte.strip()
-        self.equations = {}   # Xi -> expression (brute)
-        self.resultats = {}   # Xi -> expression régulière finale
-        self.etapes = []      # Étapes de résolution
+        self.raw_lines = systeme_texte.strip().splitlines()
+        self.equations, self.resolved, self.etapes = {}, {}, []
 
-    def resoudre(self):
-        self._parser_systeme()
-        self.etapes.append("📌 Système initial :")
-        for var, expr in self.equations.items():
-            self.etapes.append(f"{var} = {expr}")
-
-        # Étape principale : application du lemme d’Arden et substitution
-        while True:
-            variables_restantes = [v for v in self.equations if v not in self.resultats]
-            progress = False
-
-            for var in variables_restantes:
-                expr = self.equations[var]
-
-                if expr.strip() == "ε":
-                    self.resultats[var] = "ε"
-                    self.etapes.append(f"✅ {var} = ε → remplacé partout")
-                    self._remplacer_variable(var, "ε")
-                    progress = True
-                    break
-
-                coeff_self, autres, const = self._analyser_expression(var, expr)
-
-                if coeff_self is not None:
-                    autres_str = self._expr_dict_to_str(autres)
-                    partie = autres_str
-                    if const:
-                        partie = f"{autres_str} + {const}" if autres_str else const
-
-                    nouvelle_expr = f"{coeff_self}*({partie})" if partie else f"{coeff_self}*ε"
-                    self.resultats[var] = nouvelle_expr
-                    self.etapes.append(f"📐 Lemme d’Arden sur {var} : {var} = {coeff_self}{var} + {partie or 'ε'} ⇒ {var} = {nouvelle_expr}")
-                    self._remplacer_variable(var, nouvelle_expr)
-                    progress = True
-                    break
-
-            if not progress:
-                break
-
-        # 🔁 Substitution récursive + simplification
-        self.etapes.append("🔁 Simplification finale :")
-        for var in list(self.resultats):
-            expr = self.resultats[var]
-            visited = set()
-
-            while any(x in expr for x in self.resultats if x != var and x not in visited):
-                for sub_var in self.resultats:
-                    if sub_var != var and sub_var in expr:
-                        expr = re.sub(f"{sub_var}", f"({self.resultats[sub_var]})", expr)
-                        visited.add(sub_var)
-
-            # Simplifications : a*ε = a*, ε + a = a, etc.
-            expr = expr.replace("ε", "")
-            expr = expr.replace("++", "+")
-            expr = expr.replace("(ε)", "")
-            expr = re.sub(r'\(\)', '', expr)
-            expr = re.sub(r'\b\+ *\b', '+', expr)
-
-            self.resultats[var] = expr
-            self.etapes.append(f"{var} = {expr}")
-
-        self.etapes.append("🎯 Système totalement résolu.")
-
-
-    def _parser_systeme(self):
-        lignes = self.systeme_texte.splitlines()
-        for ligne in lignes:
+    def parse_equations(self):
+        for ligne in self.raw_lines:
             if '=' in ligne:
                 gauche, droite = ligne.split('=')
-                self.equations[gauche.strip()] = droite.strip()
+                self.equations[gauche.strip()] = Parser.parse(droite.strip())
 
-    def _analyser_expression(self, var, expr):
-        termes = re.split(r'\s*\+\s*', expr)
-        coeff_self = None
-        autres = {}
-        const = ''
 
-        for terme in termes:
-            terme = terme.strip()
-            if terme == "ε":
-                const = "ε"
-            elif re.fullmatch(rf"[a-z]+{var}", terme):
-                coeff_self = terme[:-len(var)]
-            elif re.fullmatch(r"[a-z]+X\d+", terme):
-                m = re.match(r"([a-z]+)(X\d+)", terme)
-                if m:
-                    autres[m.group(2)] = m.group(1)
-            elif re.fullmatch(r"[a-z]+", terme):
-                const = terme
+    
+    def resoudre(self):
+        self.parse_equations()
+        pending = dict(self.equations)
+        changed = True
 
-        return coeff_self, autres, const
+        while changed:
+            changed = False
+            for var in list(pending):
+                expr = pending[var].substitute(self.resolved).simplify().factorize()
+                loops, rest = [], []
+                if isinstance(expr, UnionNode):
+                    for n in expr.nodes:
+                        if var in n.variables(): loops.append(self._extract_prefix(n, var))
+                        else: rest.append(n)
+                elif var in expr.variables():
+                    loops = [self._extract_prefix(expr, var)]
+                else:
+                    rest = [expr]
 
-    def _expr_dict_to_str(self, d):
-        return ' + '.join([f"{v}{k}" for k, v in d.items()])
+                if not loops and rest:
+                    self.resolved[var] = UnionNode(*rest).simplify().factorize()
+                    self.etapes.append(f"{var} = {self.resolved[var]}")
+                    del pending[var]
+                    changed = True
+                elif loops:
+                    A = UnionNode(*loops).simplify()
+                    B = UnionNode(*rest).simplify() if rest else EpsilonNode()
+                    new_expr = ConcatNode(StarNode(A), B).simplify().factorize()
+                    if new_expr == expr: continue
+                    pending[var] = new_expr
+                    changed = True
 
-    def _remplacer_variable(self, cible, valeur):
-        nouvelles_equations = {}
-        for var, expr in self.equations.items():
-            if var == cible:
-                continue
-            expr_mod = re.sub(f"{cible}", f"({valeur})", expr)
-            expr_mod = expr_mod.replace('+ ε', '').replace('ε +', '')
-            nouvelles_equations[var] = expr_mod
-            if cible in expr:
-                self.etapes.append(f"🔁 Substitution : {var} = {expr} → {expr_mod}")
-        self.equations = nouvelles_equations
+        for var in self.resolved:
+            self.resolved[var] = self.resolved[var].substitute(self.resolved).simplify().factorize()
 
-    def get_resultats(self):
-        return self.resultats
+    def _extract_prefix(self, node, var):
+        if isinstance(node, VariableNode) and node.name == var:
+            return EpsilonNode()
+        elif isinstance(node, ConcatNode):
+            if var in node.right.variables():
+                return node.left
+        return node
 
-    def get_etapes(self):
+    def get_resultats(self): return {k: str(v) for k, v in self.resolved.items()}
+    def get_etapes(self): 
+        self.etapes = None
         return self.etapes
-
 
 
 
@@ -1449,59 +1577,48 @@ def automate_to_expression(automate_id):
     emode_result = emoder_automate(automate)
     etats = emode_result['etats']
     transitions = emode_result['transitions']
-    
-    noms_etats = {etat.nom: etat for etat in etats}
-    etat_index = {etat.nom: i for i, etat in enumerate(etats)}
+
     equations = defaultdict(list)
     finals = set()
     initial = None
 
+    # Renommer les états en X0, X1, ...
+    etat_mapping = {etat.nom: f"X{i}" for i, etat in enumerate(etats)}
+    inverse_mapping = {v: k for k, v in etat_mapping.items()}
+
     for t in transitions:
-        i, j = t.source.nom, t.cible.nom
+        i, j = etat_mapping[t.source.nom], etat_mapping[t.cible.nom]
         symbol = t.symbole.strip() or 'ε'
         equations[i].append((symbol, j))
 
     for etat in etats:
         if etat.est_initial:
-            initial = etat.nom
+            initial = etat_mapping[etat.nom]
         if etat.est_final:
-            finals.add(etat.nom)
+            finals.add(etat_mapping[etat.nom])
 
-    langages = {e.nom: '' for e in etats}
+    # Construction des équations sous forme texte
+    systeme = []
     for etat in etats:
-        parts = []
-        for symb, cible in equations[etat.nom]:
-            parts.append(f'{symb}.{cible}')
-        if etat.nom in finals:
-            parts.append('ε')
-        langages[etat.nom] = ' + '.join(parts) if parts else '∅'
-
-    def substitute(expr, var, val):
-        return expr.replace(f'{var}', f'({val})').replace(var, f'({val})')
-
-    for k in reversed(range(len(etats))):
-        ek = etats[k].nom
-        expr = langages[ek]
-        A_parts, B_parts = [], []
-        for part in expr.split('+'):
-            part = part.strip()
-            if f'.{ek}' in part or part == ek:
-                A_parts.append(part.replace(f'.{ek}', '').strip())
+        var = etat_mapping[etat.nom]
+        terms = []
+        for symbole, cible in equations[var]:
+            if symbole == 'ε':
+                terms.append(f'{cible}')
             else:
-                B_parts.append(part)
-        A = ' + '.join(A_parts).strip()
-        B = ' + '.join(B_parts).strip()
-        if A:
-            langages[ek] = f'({A})*({B})' if B else f'({A})*'
-        else:
-            langages[ek] = B
+                terms.append(f'{symbole}{cible}')
+        if var in finals:
+            terms.append('ε')
+        droite = ' + '.join(terms) if terms else '∅'
+        systeme.append(f"{var} = {droite}")
 
-        for j in range(k):
-            ej = etats[j].nom
-            langages[ej] = substitute(langages[ej], ek, langages[ek])
+    # Résolution avec le solveur AST
+    systeme_str = "\n".join(systeme)
+    solver = EquationSolver(systeme_str)
+    solver.resoudre()
+    resultats = solver.get_resultats()
 
-    expr_finale = simplify_expression(langages[initial])
-    return expr_finale
+    return resultats.get(initial, '∅')
 
 
 
