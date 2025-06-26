@@ -1577,49 +1577,59 @@ def automate_to_expression(automate_id):
     emode_result = emoder_automate(automate)
     etats = emode_result['etats']
     transitions = emode_result['transitions']
-
+    
+    noms_etats = {etat.nom: etat for etat in etats}
+    etat_index = {etat.nom: i for i, etat in enumerate(etats)}
     equations = defaultdict(list)
     finals = set()
     initial = None
 
-    # Renommer les états en X0, X1, ...
-    etat_mapping = {etat.nom: f"X{i}" for i, etat in enumerate(etats)}
-    inverse_mapping = {v: k for k, v in etat_mapping.items()}
-
     for t in transitions:
-        i, j = etat_mapping[t.source.nom], etat_mapping[t.cible.nom]
+        i, j = t.source.nom, t.cible.nom
         symbol = t.symbole.strip() or 'ε'
         equations[i].append((symbol, j))
 
     for etat in etats:
         if etat.est_initial:
-            initial = etat_mapping[etat.nom]
+            initial = etat.nom
         if etat.est_final:
-            finals.add(etat_mapping[etat.nom])
+            finals.add(etat.nom)
 
-    # Construction des équations sous forme texte
-    systeme = []
+    langages = {e.nom: '' for e in etats}
     for etat in etats:
-        var = etat_mapping[etat.nom]
-        terms = []
-        for symbole, cible in equations[var]:
-            if symbole == 'ε':
-                terms.append(f'{cible}')
+        parts = []
+        for symb, cible in equations[etat.nom]:
+            parts.append(f'{symb}.{cible}')
+        if etat.nom in finals:
+            parts.append('ε')
+        langages[etat.nom] = ' + '.join(parts) if parts else '∅'
+
+    def substitute(expr, var, val):
+        return expr.replace(f'{var}', f'({val})').replace(var, f'({val})')
+
+    for k in reversed(range(len(etats))):
+        ek = etats[k].nom
+        expr = langages[ek]
+        A_parts, B_parts = [], []
+        for part in expr.split('+'):
+            part = part.strip()
+            if f'.{ek}' in part or part == ek:
+                A_parts.append(part.replace(f'.{ek}', '').strip())
             else:
-                terms.append(f'{symbole}{cible}')
-        if var in finals:
-            terms.append('ε')
-        droite = ' + '.join(terms) if terms else '∅'
-        systeme.append(f"{var} = {droite}")
+                B_parts.append(part)
+        A = ' + '.join(A_parts).strip()
+        B = ' + '.join(B_parts).strip()
+        if A:
+            langages[ek] = f'({A})*({B})' if B else f'({A})*'
+        else:
+            langages[ek] = B
 
-    # Résolution avec le solveur AST
-    systeme_str = "\n".join(systeme)
-    solver = EquationSolver(systeme_str)
-    solver.resoudre()
-    resultats = solver.get_resultats()
+        for j in range(k):
+            ej = etats[j].nom
+            langages[ej] = substitute(langages[ej], ek, langages[ek])
 
-    return resultats.get(initial, '∅')
-
+    expr_finale = simplify_expression(langages[initial])
+    return expr_finale
 
 
 
