@@ -1487,13 +1487,14 @@ class EquationSolver:
             changed = False
             for var in list(pending):
                 expr = pending[var].substitute(self.resolved).simplify().factorize()
+
                 loops, rest = [], []
                 if isinstance(expr, UnionNode):
-                    for n in expr.nodes:
-                        if var in n.variables():
-                            loops.append(self._extract_prefix(n, var))
+                    for node in expr.nodes:
+                        if var in node.variables():
+                            loops.append(self._extract_prefix(node, var))
                         else:
-                            rest.append(n)
+                            rest.append(node)
                 elif var in expr.variables():
                     loops = [self._extract_prefix(expr, var)]
                 else:
@@ -1508,13 +1509,27 @@ class EquationSolver:
                     A = UnionNode(*loops).simplify()
                     B = UnionNode(*rest).simplify() if rest else EpsilonNode()
                     new_expr = ConcatNode(StarNode(A), B).simplify().factorize()
-                    if new_expr == expr:
-                        continue
-                    pending[var] = new_expr
-                    changed = True
+                    if new_expr != expr:
+                        pending[var] = new_expr
+                        changed = True
 
-        for var in self.resolved:
-            self.resolved[var] = self.resolved[var].substitute(self.resolved).simplify().factorize()
+        # 🔁 PHASE FINALE : Substituer récursivement toutes les variables jusqu’à stabilisation
+        stable = False
+        max_iterations = 50  # limite de sécurité
+        iteration = 0
+
+        while not stable and iteration < max_iterations:
+            iteration += 1
+            stable = True
+            for var, expr in self.resolved.items():
+                substituted = expr.substitute(self.resolved).simplify().factorize()
+                if substituted != expr:
+                    self.resolved[var] = substituted
+                    stable = False  # Encore des dépendances, refaire un tour
+
+        # En option : ajoute un message si on atteint la limite d'itérations
+        if iteration == max_iterations:
+            self.etapes.append("⚠️ Avertissement : résolution non totalement stabilisée (limite atteinte)")
 
     def _extract_prefix(self, node, var):
         if isinstance(node, VariableNode) and node.name == var:
@@ -1601,6 +1616,7 @@ def simplify_expression(expr: str) -> str:
     return expr
 
 
+
 def automate_to_expression(automate_id):
     automate = Automate.objects.prefetch_related('etats', 'transitions').get(id=automate_id)
 
@@ -1608,59 +1624,49 @@ def automate_to_expression(automate_id):
     emode_result = emoder_automate(automate)
     etats = emode_result['etats']
     transitions = emode_result['transitions']
-    
-    noms_etats = {etat.nom: etat for etat in etats}
-    etat_index = {etat.nom: i for i, etat in enumerate(etats)}
+
+    # Étape 2 : Renommage des états -> X0, X1, ...
+    nom_originaux = [etat.nom for etat in etats]
+    renommage = {nom: f"X{i}" for i, nom in enumerate(nom_originaux)}
+    inverse_renommage = {v: k for k, v in renommage.items()}
+
+    # Identifier l’état initial et les états finaux
+    initial_original = next(etat.nom for etat in etats if etat.est_initial)
+    initial = renommage[initial_original]
+    finals = {renommage[etat.nom] for etat in etats if etat.est_final}
+
+    # Étape 3 : Construction du système d’équations textuelles
     equations = defaultdict(list)
-    finals = set()
-    initial = None
-
     for t in transitions:
-        i, j = t.source.nom, t.cible.nom
-        symbol = t.symbole.strip() or 'ε'
-        equations[i].append((symbol, j))
+        source = renommage[t.source.nom]
+        cible = renommage[t.cible.nom]
+        symbole = t.symbole.strip() or 'ε'
+        equations[source].append((symbole, cible))
 
-    for etat in etats:
-        if etat.est_initial:
-            initial = etat.nom
-        if etat.est_final:
-            finals.add(etat.nom)
+    # Générer le système d'équations sous forme de texte
+    systeme = ""
+    for nom in sorted(renommage.values(), key=lambda x: int(x[1:])):  # tri X0, X1, ...
+        parties = [f"{symb}{cible}" for symb, cible in equations[nom]]
+        if nom in finals:
+            parties.append("ε")
+        droite = " + ".join(parties) if parties else "∅"
+        systeme += f"{nom} = {droite}\n"
 
-    langages = {e.nom: '' for e in etats}
-    for etat in etats:
-        parts = []
-        for symb, cible in equations[etat.nom]:
-            parts.append(f'{symb}.{cible}')
-        if etat.nom in finals:
-            parts.append('ε')
-        langages[etat.nom] = ' + '.join(parts) if parts else '∅'
+    # Étape 4 : Résolution du système
+    solver = EquationSolver(systeme)
+    solver.resoudre()
 
-    def substitute(expr, var, val):
-        return expr.replace(f'{var}', f'({val})').replace(var, f'({val})')
+    # Étape 5 : Récupérer l'expression de X0 complètement substituée
+    resolved_ast = solver.resolved.get(initial)
 
-    for k in reversed(range(len(etats))):
-        ek = etats[k].nom
-        expr = langages[ek]
-        A_parts, B_parts = [], []
-        for part in expr.split('+'):
-            part = part.strip()
-            if f'.{ek}' in part or part == ek:
-                A_parts.append(part.replace(f'.{ek}', '').strip())
-            else:
-                B_parts.append(part)
-        A = ' + '.join(A_parts).strip()
-        B = ' + '.join(B_parts).strip()
-        if A:
-            langages[ek] = f'({A})*({B})' if B else f'({A})*'
-        else:
-            langages[ek] = B
+    if resolved_ast is None:
+        return '∅'
 
-        for j in range(k):
-            ej = etats[j].nom
-            langages[ej] = substitute(langages[ej], ek, langages[ek])
+    # Appliquer une substitution finale au cas où des variables résiduelles restent
+    fully_substituted = resolved_ast.substitute(solver.resolved).simplify().factorize()
 
-    expr_finale = simplify_expression(langages[initial])
-    return expr_finale
+    return str(fully_substituted)
+
 
 
 

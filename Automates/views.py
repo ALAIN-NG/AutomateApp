@@ -279,30 +279,42 @@ def tester_mot(request, automate_id):
 def union_automates(request, id1, id2):
     a1 = get_object_or_404(Automate, id=id1)
     a2 = get_object_or_404(Automate, id=id2)
-
-    etapes, result = faire_union(a1, a2)
-
+    try:
+        etapes, result = faire_union(a1, a2)
+        error = None
+    except Exception as e:
+        etapes = []
+        error = str(e)
+        result = None
     return render(request, 'automates/operation_resultat.html', {
         'automates_origine': [a1, a2],
         'automate_resultat': result,
         'etapes': etapes,
-        'operation': 'Union'
+        'operation': 'Union',
+        'error': error
     })
+
 
 
 
 def intersection_automates(request, id1, id2):
     a1 = get_object_or_404(Automate, id=id1)
     a2 = get_object_or_404(Automate, id=id2)
-
-    etapes, resultat = faire_intersection(a1, a2)
-
+    try:
+        etapes, resultat = faire_intersection(a1, a2)
+        error = None
+    except Exception as e:
+        etapes = []
+        error = str(e)
+        resultat = None    
     return render(request, 'automates/operation_resultat.html', {
         'automates_origine': [a1, a2],
         'automate_resultat': resultat,
         'etapes': etapes,
-        'operation': 'Intersection'
+        'operation': 'Intersection',
+        'error': error
     })
+
 
 
 def determiniser_automate(request, automate_id):
@@ -310,7 +322,7 @@ def determiniser_automate(request, automate_id):
     try:
         etapes, afd = determiniser(afn)
         error = None
-    except ValueError as e:
+    except Exception as e:
         afd = None
         etapes = []
         error = str(e)
@@ -414,7 +426,7 @@ def complement_automate(request, id):
     try:
         etapes, resultat = faire_complementaire(automate)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -433,7 +445,7 @@ def minimiser_automate(request, automate_id):
     try:
         etapes, resultat = faire_minimisation(automate)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -452,7 +464,7 @@ def canoniser_automate(request, automate_id):
     try:
         etapes, resultat = faire_canonisation(automate)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -471,7 +483,7 @@ def etoile_kleene(request, automate_id):
 
     try:
         resultat = cloture_etoile(automate)
-    except ValueError as e:
+    except Exception as e:
         messages.error(request, str(e))
         return redirect('details_automate', automate_id=automate.id)
 
@@ -486,13 +498,18 @@ def etoile_kleene(request, automate_id):
 def cloture_concatenation(request, id1, id2):
     a1 = get_object_or_404(Automate, id=id1)
     a2 = get_object_or_404(Automate, id=id2)
-
-    etapes, resultat = concatenation(a1, a2)
-
+    try:
+        etapes, resultat = concatenation(a1, a2)
+        error = None
+    except Exception as e:
+        resultat = None
+        etapes = []
+        error = str(e)
     return render(request, 'automates/operation_resultat.html', {
         'automates_origine': [a1, a2],
         'automate_resultat': resultat,
         'etapes': etapes,
+        'error': error,
         'operation': 'Cloture par Concatenation'
     })
 
@@ -519,7 +536,7 @@ def cloture_difference(request, id1, id2):
     try:
         etapes, resultat = difference(a1, a2)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -539,7 +556,7 @@ def cloture_quotient(request, id1, id2):
     try:
         etapes, resultat = quotient_gauche(a_b, a_a)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -563,7 +580,7 @@ def analyse_etats(request, automate_id):
         accessibles = etats_accessibles(automate)
         coaccessibles = etats_coaccessibles(automate)
         utiles = etats_utiles(automate)
-    except ValueError as e:
+    except Exception as e:
         messages.error(request, str(e))
         return redirect('details_automate', automate_id=automate.id)
 
@@ -582,7 +599,7 @@ def completer_automate(request, automate_id):
     try:
         etapes, resultat = completion(automate)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -613,7 +630,7 @@ def afd_vers_afn(request, automate_id):
 
     try:
         etapes, resultat = convertir_afd_en_afn(automate)
-    except ValueError as e:
+    except Exception as e:
         messages.error(request, str(e))
         return redirect('details_automate', automate_id=automate.id)
 
@@ -634,7 +651,7 @@ def afn_vers_efn(request, automate_id):
         etapes, resultat = convertir_afn_vers_efn(automate)
         error = None
 
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -653,7 +670,7 @@ def afd_vers_efn(request, automate_id):
         etapes, resultat = convertir_afd_vers_efn(automate)
         error = None
 
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -674,7 +691,7 @@ def convertir_epsilon_vers_afn(request, automate_id):
     try:
         resultat, etapes = eliminer_transitions_epsilon(automate)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -694,7 +711,7 @@ def convertir_epsilon_vers_afd(request, automate_id):
     try:
         etapes, resultat = eliminer_epsilon_et_determiniser(automate)
         error = None
-    except ValueError as e:
+    except Exception as e:
         resultat = None
         etapes = []
         error = str(e)
@@ -812,7 +829,7 @@ def expression_reguliere(request, automate_id):
     automate = get_object_or_404(Automate, id=automate_id)
     try:
         expression = automate_to_expression(automate_id)
-    except ValueError as e:
+    except Exception as e:
         expression = f"Erreur : {str(e)}"
 
     return render(request, 'automates/expression_resultat.html', {
